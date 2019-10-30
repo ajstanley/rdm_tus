@@ -2,21 +2,24 @@
 
 namespace Drupal\tus;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use TusPhp\Tus\Server as TusPhp;
 use Drupal\file\Entity\File;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Drupal\Core\Controller\ControllerBase;
 
 /**
  * Class TusServer.
  */
-class TusServer implements TusServerInterface {
-
+class TusServer extends ControllerBase implements TusServerInterface {
   /**
-   * Constructs a new TusServer object.
+   * TusServer constructor.
+   * @param ConfigFactoryInterface $configFactory
    */
   public function __construct() {
 
   }
+
 
   /**
    * Determine the Drupal URI for a file based on TUS upload key and meta params
@@ -67,16 +70,17 @@ class TusServer implements TusServerInterface {
    */
   public function getServer($uploadKey = '', $postData = []) {
     // Ensure TUS cache directory exists.
-    $tusCacheDir = 'private://tus';
+    $config = $this->config('tus.settings');
+    $tusCacheDir = $config->get('scheme') . 'tus';
     if (!file_prepare_directory($tusCacheDir, FILE_CREATE_DIRECTORY)) {
-      throw new HttpException(500, 'TUS cache folder "private://tus" is not writable.');
+      throw new HttpException(500, "TUS cache folder '$tusCacheDir'' is not writable.");
     }
     // Set TUS config cache directory.
     \TusPhp\Config::set([
       'file' => [
-        'dir' => drupal_realpath('private://tus') . '/',
+        'dir' => \Drupal::service('file_system')->realpath($tusCacheDir) . '/',
         'name' => 'tus_php.cache',
-      ]
+      ],
     ]);
 
     // Initialize TUS server.
@@ -111,7 +115,9 @@ class TusServer implements TusServerInterface {
     // Get the file destination.
     $destination = $this->determineDestination($uploadKey, $postData);
     // Set the upload directory for TUS.
-    $server->setUploadDir(drupal_realpath($destination));
+    $server->setUploadDir(\Drupal::service('file_system')->realpath($destination));
+    $server->setUploadDir('/var/www/html'); // Debug
+    $server->setUploadDir($destination);
 
     return $server;
   }
@@ -119,7 +125,7 @@ class TusServer implements TusServerInterface {
   /**
    * Create the file in Drupal and send response.
    *
-   * @param array  $postData
+   * @param array $postData
    *   Array of file details from TUS client.
    *
    * @return array
@@ -140,15 +146,19 @@ class TusServer implements TusServerInterface {
     // Get file destination.
     $destination = $this->determineDestination($uploadKey, $postData['file']['meta']);
     $fileName = $postData['file']['name'];
-    $fileUri = $destination . '/' .  $fileName;
+    $fileUri = $destination . '/' . $fileName;
 
     // Check if the file already exists.  Re-use the existing entity if so.
     // We can do this because even if the filenames are the same on 2 different
     // files, the checksum performed by TUS will cause a new uploadKey, and
     // therefor a new folder and file entity entry.
-    if (file_exists(drupal_realpath($fileUri))) {
-      $fileExists = TRUE;
-    }
+    $handle = @fopen($fileUri, 'r');
+    $fileExists = $handle ? TRUE : FALSE;
+
+
+//    if (file_exists(drupal_realpath($fileUri))) {
+//      $fileExists = TRUE;
+//    }
 
     // Check if we have a file_managed record for the file anywhere.
     $fileStorage = \Drupal::entityTypeManager()->getStorage('file');
@@ -175,15 +185,17 @@ class TusServer implements TusServerInterface {
       if (file_exists(drupal_realpath($file->getFileUri()))) {
         $fileExists = TRUE;
       }
+      $handle = @fopen($file->getFileUri(), 'r');
+      $fileExists = $handle ? TRUE : FALSE;
     }
 
     // If the file didn't already exist, create the record now.
     if ($fileExists && !$fileEntityExists) {
       // Create the file entity.
       $file = File::create([
-        'uid'      => \Drupal::currentUser()->id(),
+        'uid' => \Drupal::currentUser()->id(),
         'filename' => $fileName,
-        'uri'      => $fileUri,
+        'uri' => $fileUri,
         'filemime' => $postData['file']['type'],
         'filesize' => $postData['file']['size'],
       ]);
