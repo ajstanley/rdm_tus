@@ -30,7 +30,11 @@ class TusSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $scheme_options = ['public://' => 'public', 'private://' => 'private'];
+    $fileSystem = \Drupal::service('file_system');
+    $scheme_options = ['public://' => 'public'];
+    if ($fileSystem->validScheme('private')) {
+      $scheme_options['private://'] = 'private';
+    }
     $form['scheme'] = [
       '#type' => 'radios',
       '#description' => $this->t('File system to store cache'),
