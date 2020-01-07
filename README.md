@@ -2,6 +2,10 @@
 This is the Canarie fork of the TUS module, which works with external file systems.
 This is a Drupal 8 integration for [tus-php](https://github.com/ankitpokhrel/tus-php).
 
+Note: TUS will consider any two uploads with the same name AND checksum to be the same file
+(It probably is). This will allow the same file to be shared between different media.
+
+
 ###How to install:
 1. Download & enable this module.
 2. Install vendor package with `composer require ankitpokhrel/tus-php`
