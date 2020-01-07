@@ -2,7 +2,7 @@
 This is the Canarie fork of the TUS module, which works with external file systems.
 This is a Drupal 8 integration for [tus-php](https://github.com/ankitpokhrel/tus-php).
 
-### How to install:
+###How to install:
 1. Download & enable this module.
 2. Install vendor package with `composer require ankitpokhrel/tus-php`
 2. Ensure these headers in your CORS services.yml settings:

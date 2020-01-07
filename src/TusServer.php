@@ -71,7 +71,8 @@ class TusServer extends ControllerBase implements TusServerInterface {
   public function getServer($uploadKey = '', $postData = []) {
     // Ensure TUS cache directory exists.
     $config = $this->config('tus.settings');
-    $tusCacheDir = $config->get('scheme') . 'tus';
+    $scheme = $config->get('scheme') ? $config->get('scheme') : "public://";
+    $tusCacheDir = $scheme . 'tus';
     if (!file_prepare_directory($tusCacheDir, FILE_CREATE_DIRECTORY)) {
       throw new HttpException(500, "TUS cache folder '$tusCacheDir'' is not writable.");
     }
@@ -131,7 +132,7 @@ class TusServer extends ControllerBase implements TusServerInterface {
    * @return array
    *   The created file details.
    */
-  public function uploadComplete($postData = []) {
+  public function uploadComplete(array $postData = []) {
     // If no post data, we can't proceed.
     if (empty($postData['file'])) {
       throw new HttpException(500, 'TUS uploadComplete did not receive file info.');
@@ -154,11 +155,6 @@ class TusServer extends ControllerBase implements TusServerInterface {
     // therefor a new folder and file entity entry.
     $handle = @fopen($fileUri, 'r');
     $fileExists = $handle ? TRUE : FALSE;
-
-
-//    if (file_exists(drupal_realpath($fileUri))) {
-//      $fileExists = TRUE;
-//    }
 
     // Check if we have a file_managed record for the file anywhere.
     $fileStorage = \Drupal::entityTypeManager()->getStorage('file');
